@@ -1,3 +1,4 @@
 .vscode
 .prettierrc.json
 node_modules
+lib
