@@ -1,0 +1,33 @@
+{
+  "name": "browser-vision",
+  "version": "0.0.1",
+  "description": "Window wrapper for web-llm library to access its API globally",
+  "main": "lib/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OvidijusParsiunas/web-llm-window.git"
+  },
+  "keywords": [
+    "browser",
+    "vision",
+    "ap"
+  ],
+  "author": "Ovidijus Parsiunas",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/OvidijusParsiunas/web-llm-window/issues"
+  },
+  "homepage": "https://github.com/OvidijusParsiunas/web-llm-window#readme",
+  "devDependencies": {
+    "@types/node": "^20.9.0",
+    "typescript": "^4.5.4",
+    "@types/chrome": "^0.0.251"
+  },
+  "files": [
+    "lib/**/*"
+  ]
+}
