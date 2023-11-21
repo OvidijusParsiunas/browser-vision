@@ -11,18 +11,23 @@
       API key:
       <input type="password" />
       <br />
-      Task:
-      <textarea id="browser-vision-task"></textarea>
+      Instruction:
+      <textarea id="browser-vision-instruction"></textarea>
       <br />
       <!-- WORK - modes for capture and manual capture -->
       <!-- WORK - upload image to send -->
       <!-- WORK - marker to draw on screen to capture -->
       <div>
         <button id="browser-vision-capture">Capture</button>
+        <button id="browser-vision-auto-capture">Auto</button>
+        <br />
+        Frequency(s):
+        <input id="browser-vision-auto-frequency" type="number" value="1" />
         <br />
         Images
         <div id="browser-vision-images"></div>
         <br />
+        <!-- WORK - can only store in memory per tab -->
         All Images
         <div id="browser-vision-all-images"></div>
         <br />

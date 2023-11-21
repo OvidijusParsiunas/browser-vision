@@ -1,94 +1,106 @@
-document.addEventListener('DOMContentLoaded', function () {
-    const config = processConfig();
-    setUpTask(config);
-    setUpCapture(config);
-    setUpRequest(config);
-});
+const DEFAULT_INSTRUCTION = 'Tell me what you think about this image';
 const BROWSER_VISION_STORAGE = 'browser-vision';
 // WORK - ability to remove the icon
 // WORK - prevent multiple auto capture sessions
 // use another storage item?????
 function processConfig() {
-    if (!localStorage.getItem(BROWSER_VISION_STORAGE)) {
-        const defaultConfig = { images: [], allImages: [], task: 'Tell me what you think about this image' };
-        localStorage.setItem(BROWSER_VISION_STORAGE, JSON.stringify(defaultConfig));
+    // remove this
+    const defaultConfig = { images: [], allImages: [], instruction: DEFAULT_INSTRUCTION, isAutoActive: false };
+    updateConfig(defaultConfig);
+    //
+    const config = localStorage.getItem(BROWSER_VISION_STORAGE);
+    if (!config) {
+        const defaultConfig = { images: [], allImages: [], instruction: DEFAULT_INSTRUCTION, isAutoActive: false };
+        updateConfig(defaultConfig);
         return defaultConfig;
     }
-    return JSON.parse(localStorage.getItem(BROWSER_VISION_STORAGE));
+    return JSON.parse(config);
 }
-function setUpTask(config) {
-    const taskEl = document.getElementById('browser-vision-task');
-    taskEl.addEventListener('keyup', (event) => changeTask(config, event));
-    taskEl.value = config.task;
+function updateConfig(config) {
+    try {
+        localStorage.setItem(BROWSER_VISION_STORAGE, JSON.stringify(config));
+    }
+    catch (e) {
+        // WORK - thrown when allImages exceeds size
+        console.error(e);
+        console.log('error');
+    }
 }
-function changeTask(config, event) {
-    config.task = event.target.value;
-    localStorage.setItem(BROWSER_VISION_STORAGE, JSON.stringify(config));
-}
-function setUpCapture(config) {
-    const gallery = setUpGallery(config);
-    const captureButton = document.getElementById('browser-vision-capture');
-    captureButton.addEventListener('click', () => captureScreenshot(config, gallery));
-}
+
 function setUpGallery(config) {
-    const gallery = document.getElementById('browser-vision-images');
-    gallery.style.overflow = 'auto';
-    gallery.style.maxHeight = '100px';
+    const galleryEl = document.getElementById('browser-vision-images');
+    galleryEl.style.overflow = 'auto';
+    galleryEl.style.maxHeight = '100px';
     config.images.forEach((image) => {
-        addImage(gallery, image);
+        addImage(galleryEl, image);
     });
-    return gallery;
+    return galleryEl;
 }
-function addImage(gallery, image) {
-    const imageIcon = document.createElement('img');
-    imageIcon.style.width = '80px';
-    imageIcon.style.height = '40px';
-    imageIcon.style.border = '1px solid grey';
-    imageIcon.style.borderRadius = '8px';
-    imageIcon.src = image;
-    gallery.appendChild(imageIcon);
+function addImage(galleryEl, image) {
+    const imageIconEl = document.createElement('img');
+    imageIconEl.style.width = '80px';
+    imageIconEl.style.height = '40px';
+    imageIconEl.style.border = '1px solid grey';
+    imageIconEl.style.borderRadius = '8px';
+    imageIconEl.src = image;
+    galleryEl.appendChild(imageIconEl);
 }
+
 async function captureScreenshot(config, gallery) {
     console.log('capturing image');
     const image = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
     console.log('image captured');
     config.images.push(image);
     config.allImages.push(image);
-    addImage(gallery, image);
-    scrollToBottom(gallery);
-    setTimeout(() => {
-        localStorage.setItem(BROWSER_VISION_STORAGE, JSON.stringify(config));
-    });
+    if (gallery) {
+        addImage(gallery, image);
+        scrollToBottom(gallery);
+    }
+    setTimeout(() => updateConfig(config));
 }
 function scrollToBottom(element) {
     element.scrollTop = element.scrollHeight;
 }
-function setUpRequest(config) {
-    const sendButton = document.getElementById('browser-vision-send');
-    sendButton.addEventListener('click', () => sendRequest(config));
+
+function setUpManualCapture(config, galleryEl) {
+    const captureButtonEl = document.getElementById('browser-vision-capture');
+    captureButtonEl.addEventListener('click', () => captureScreenshot(config, galleryEl));
 }
-async function sendRequest(config) {
+
+function setUpResult() {
+    return document.getElementById('browser-vision-result');
+}
+function updateResult(resultEl, openAIResult) {
+    console.log(openAIResult);
+    resultEl.value = openAIResult.choices[0].message.content;
+}
+
+function setUpRequest(config, resultEl, galleryEl) {
+    const sendButtonEl = document.getElementById('browser-vision-send');
+    sendButtonEl.addEventListener('click', async () => {
+        sendButtonEl.style.pointerEvents = 'none';
+        await sendRequest(buildBody(config), resultEl, galleryEl);
+        config.images = [];
+        setTimeout(() => {
+            updateConfig(config);
+            sendButtonEl.style.pointerEvents = '';
+        });
+    });
+}
+async function sendRequest(body, resultEl, galleryEl) {
     console.log('requesting response');
     try {
         const result = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: '',
+                Authorization: 'Bearer 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',
             },
-            body: buildBody(config),
+            body,
         });
         const responseData = await result.json();
-        console.log(responseData);
-        const resultText = responseData.choices[0].message.content;
-        const resultElement = document.getElementById('browser-vision-result');
-        resultElement.value = resultText;
-        config.images = [];
-        const gallery = document.getElementById('browser-vision-images');
-        gallery.replaceChildren();
-        setTimeout(() => {
-            localStorage.setItem(BROWSER_VISION_STORAGE, JSON.stringify(config));
-        });
+        updateResult(resultEl, responseData);
+        galleryEl === null || galleryEl === void 0 ? void 0 : galleryEl.replaceChildren();
     }
     catch (error) {
         console.error('Error:', error);
@@ -101,7 +113,7 @@ function buildBody(config) {
         messages: [
             {
                 role: 'system',
-                content: localStorage.getItem('browser-vision-task'),
+                content: config.instruction,
             },
         ],
     };
@@ -112,3 +124,58 @@ function buildBody(config) {
         body.messages.push({ role: 'user', content: imageContent });
     return JSON.stringify(body);
 }
+
+const SECOND_ML = 1000;
+function setUpAutoCapture(config, resultEl) {
+    const startButtonEl = document.getElementById('browser-vision-auto-capture');
+    const frequencyEl = document.getElementById('browser-vision-auto-frequency');
+    startButtonEl.addEventListener('click', () => toggleAutoCapture(startButtonEl, frequencyEl, config, resultEl));
+}
+// WORK - hotkey
+// prettier-ignore
+function toggleAutoCapture(startButtonEl, frequencyEl, config, resultEl) {
+    if (config.isAutoActive) {
+        startButtonEl.innerText = 'Active';
+    }
+    else {
+        const timeout = Number.parseFloat(frequencyEl.value) * SECOND_ML;
+        const processedTimeout = Math.max(timeout, SECOND_ML);
+        autoCapture(processedTimeout, config, resultEl);
+        startButtonEl.innerText = 'Stop';
+    }
+    config.isAutoActive = !config.isAutoActive;
+    updateConfig(config);
+}
+function autoCapture(timeout, config, resultEl) {
+    setTimeout(async () => {
+        await captureScreenshot(config);
+        sendRequest(buildBody(config), resultEl);
+        config.images = [];
+        setTimeout(() => {
+            updateConfig(config);
+            // sendButtonEl.style.pointerEvents = '';
+        });
+        if (config.isAutoActive)
+            autoCapture(timeout, config, resultEl);
+    }, timeout);
+}
+
+function setUpInstruction(config) {
+    const instructionEl = document.getElementById('browser-vision-instruction');
+    instructionEl.addEventListener('keyup', () => change(config, instructionEl));
+    instructionEl.value = config.instruction;
+}
+function change(config, instructionEl) {
+    config.instruction = instructionEl.value;
+    updateConfig(config);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const config = processConfig();
+    setUpInstruction(config);
+    const galleryEl = setUpGallery(config);
+    setUpManualCapture(config, galleryEl);
+    const resultEl = setUpResult();
+    setUpRequest(config, resultEl, galleryEl);
+    setUpAutoCapture(config, resultEl);
+});
